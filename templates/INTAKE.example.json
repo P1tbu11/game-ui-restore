@@ -1,0 +1,28 @@
+{
+  "stage": { "w": 4680, "h": 2160 },
+  "minViewport": { "w": 844, "h": 390 },
+  "frames": [
+    { "key": "main", "nodeId": "0:1", "w": 4680, "h": 2160, "factor": 1.0 }
+  ],
+  "views": [
+    { "key": "main", "query": "?page=main", "figmaRef": "reference/main.png" }
+  ],
+  "channelCheck": {
+    "verifiedAt": "2026-11-16",
+    "method": "get_design_context assetPathPrefix",
+    "sampleNode": "0:2",
+    "cornerAlpha": [0, 0, 0, 0]
+  },
+  "fonts": [
+    { "figmaStyle": "ExampleFont-Bold", "family": "MainDisplay", "file": "fonts/ExampleFont-Bold.woff2" }
+  ],
+  "componentSets": [
+    { "name": "PrimaryButton", "nodeId": "0:10", "variants": ["state=default", "state=selected", "state=disabled"] }
+  ],
+  "approvedFallbacks": [],
+  "allowedTranslucent": [],
+  "budget": {
+    "maxSingleVideoMB": 25,
+    "maxTotalPackageMB": 50
+  }
+}
