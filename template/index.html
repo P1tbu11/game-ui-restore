@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>游戏 UI 还原 · 骨架</title>
+<style>
+  /* 骨架自带的样式只做两件事：把舞台缩放到窗口、把占位块摆出来。
+     真正的界面外观一律来自切图与设计值，不在这里发明。 */
+  :root{
+    --stage-w: 2206px;      /* 由 data/app.js 的 canvas 覆盖 */
+    --stage-h: 946px;
+    --ink: #f3efe6;
+    --ink-dim: rgba(243, 239, 230, .55);
+    --line: rgba(243, 239, 230, .16);
+    --ground: #121317;
+    --tab-w: 320px;
+    --pad: 40px;
+  }
+  *{ box-sizing: border-box; }
+  html, body{ height: 100%; margin: 0; background: #000; }
+  body{
+    overflow: hidden;
+    color: var(--ink);
+    font: 16px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* 舞台：固定设计尺寸 + 等比缩放。所有坐标都写设计像素，不写百分比。 */
+  #stage{
+    position: absolute; left: 50%; top: 50%;
+    width: var(--stage-w); height: var(--stage-h);
+    transform-origin: 50% 50%;
+    background: var(--ground);
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: var(--tab-w) 1fr;
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "top top" "tabs pages";
+  }
+
+  #topbar{
+    grid-area: top;
+    display: flex; align-items: baseline; gap: 24px;
+    padding: var(--pad);
+    border-bottom: 1px solid var(--line);
+  }
+  #title{ margin: 0; font-size: 40px; font-weight: 600; letter-spacing: .01em; }
+  #hint{ color: var(--ink-dim); font-size: 20px; }
+
+  #tabs{
+    grid-area: tabs;
+    display: flex; flex-direction: column;
+    gap: 8px;
+    padding: 24px 16px;
+    border-right: 1px solid var(--line);
+    overflow-y: auto;
+  }
+  .tab{
+    appearance: none; background: none; border: 0; color: var(--ink-dim);
+    font: inherit; font-size: 24px; text-align: left;
+    padding: 14px 16px; border-radius: 12px; cursor: pointer;
+    transition: color .18s ease, background-color .18s ease;
+  }
+  .tab:hover{ color: var(--ink); background: rgba(255,255,255,.05); }
+  .tab[aria-selected="true"]{ color: var(--ink); background: rgba(255,255,255,.09); }
+  .tab:focus-visible{ outline: 2px solid #9ecbff; outline-offset: 2px; }
+
+  #pages{ grid-area: pages; position: relative; overflow: hidden; }
+  .page{
+    position: absolute; inset: 0;
+    padding: var(--pad);
+    display: none;
+  }
+  .page[data-active="true"]{ display: block; }
+
+  .grid{
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 24px;
+    align-content: start;
+  }
+
+  /* 占位块：切图没到之前用它代替。上了真图就把 .card 里换成 <img>。 */
+  .card{
+    appearance: none; position: relative; display: block; width: 100%;
+    aspect-ratio: 3 / 4;
+    padding: 0; border: 1px dashed var(--line); border-radius: 16px;
+    background: rgba(255,255,255,.02);
+    color: var(--ink-dim); font: inherit; font-size: 15px;
+    cursor: pointer; overflow: hidden;
+    transition: border-color .18s ease, background-color .18s ease, transform .18s ease;
+  }
+  .card > img{ display: block; width: 100%; height: 100%; object-fit: contain; }
+  .card__slot{
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 6px; padding: 16px; text-align: center;
+  }
+  .card__slot b{ color: var(--ink); font-weight: 500; }
+  .card:hover{ border-color: rgba(243,239,230,.32); background: rgba(255,255,255,.05); }
+  .card:focus-visible{ outline: 2px solid #9ecbff; outline-offset: 2px; }
+  .card.is-on{
+    border-style: solid; border-color: #ffd77f;
+    background: rgba(255,215,127,.08);
+    transform: translateY(-2px);
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .tab, .card{ transition: none; }
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <header id="topbar">
+    <h1 id="title">游戏 UI 骨架</h1>
+    <span id="hint">把切图放进 pieces/、字体放进 fonts/，再改 data/app.js</span>
+  </header>
+  <nav id="tabs" aria-label="一级页签"></nav>
+  <main id="pages"></main>
+</div>
+
+<script src="data/app.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var DATA = window.APP_DATA || { canvas: { w: 2206, h: 946 }, pages: [] };
+  var stage = document.getElementById('stage');
+  var tabsEl = document.getElementById('tabs');
+  var pagesEl = document.getElementById('pages');
+  var titleEl = document.getElementById('title');
+
+  // ---- 舞台缩放：设计尺寸不动，只改 transform。窗口怎么变，比例都对。 ----
+  stage.style.setProperty('--stage-w', (DATA.canvas && DATA.canvas.w || 2206) + 'px');
+  stage.style.setProperty('--stage-h', (DATA.canvas && DATA.canvas.h || 946) + 'px');
+
+  function fit() {
+    var w = DATA.canvas.w, h = DATA.canvas.h;
+    var s = Math.min(window.innerWidth / w, window.innerHeight / h);
+    stage.style.transform = 'translate(-50%, -50%) scale(' + s + ')';
+  }
+  window.addEventListener('resize', fit);
+  fit();
+
+  // ---- 选中模型：每个页面各记一个 id，切页不串 ----
+  var selected = {};
+
+  // 数据里只写文件名，路径在这里统一补。绝对地址和前缀路径原样放过。
+  function resolveAsset(p) {
+    if (/^(https?:|data:|\/|\.{1,2}\/)/.test(p)) return p;
+    return 'pieces/' + p;
+  }
+
+  function renderCard(page, item) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'card';
+    btn.dataset.id = item.id;
+    btn.setAttribute('aria-pressed', 'false');
+    btn.setAttribute('aria-label', item.name || item.id);
+
+    if (item.img) {
+      var img = document.createElement('img');
+      img.src = resolveAsset(item.img);
+      img.alt = '';
+      btn.appendChild(img);
+    }
+    var slot = document.createElement('span');
+    slot.className = 'card__slot';
+    slot.innerHTML = item.img
+      ? '<b></b><span>' + (item.name || '') + '</span>'
+      : '<b>' + (item.name || item.id) + '</b><span>切图位</span>';
+    btn.appendChild(slot);
+
+    btn.addEventListener('click', function () { select(page, item.id); });
+    return btn;
+  }
+
+  function select(page, id) {
+    selected[page.key] = id;
+    var host = pagesEl.querySelector('[data-p="' + page.key + '"]');
+    if (!host) return;
+    Array.prototype.forEach.call(host.querySelectorAll('.card'), function (el) {
+      var on = el.dataset.id === id;
+      el.classList.toggle('is-on', on);
+      el.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    // 右侧信息、背景切换都从这里接：拿到 id 再查 page.cards 里的字段。
+    document.dispatchEvent(new CustomEvent('ui:select', {
+      detail: { page: page.key, id: id }
+    }));
+  }
+
+  // ---- 页签与页面：一条数据一条页，不写死结构 ----
+  function buildPage(page) {
+    var sec = document.createElement('section');
+    sec.className = 'page';
+    sec.dataset.p = page.key;
+    sec.setAttribute('aria-label', page.title || page.key);
+
+    var grid = document.createElement('div');
+    grid.className = 'grid';
+    (page.cards || []).forEach(function (item) { grid.appendChild(renderCard(page, item)); });
+    sec.appendChild(grid);
+    pagesEl.appendChild(sec);
+  }
+
+  function activate(key) {
+    var page = null;
+    for (var i = 0; i < DATA.pages.length; i++) {
+      if (DATA.pages[i].key === key) page = DATA.pages[i];
+    }
+    if (!page) return;
+
+    Array.prototype.forEach.call(tabsEl.children, function (b) {
+      b.setAttribute('aria-selected', b.dataset.key === key ? 'true' : 'false');
+    });
+    Array.prototype.forEach.call(pagesEl.children, function (s) {
+      s.dataset.active = s.dataset.p === key ? 'true' : 'false';
+    });
+
+    titleEl.textContent = page.title || page.key;
+    if (!selected[key] && page.cards && page.cards.length) {
+      selected[key] = page.cards[0].id;
+    }
+    if (selected[key]) select(page, selected[key]);
+    document.dispatchEvent(new CustomEvent('ui:page', { detail: { page: key } }));
+  }
+
+  DATA.pages.forEach(function (page) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'tab';
+    b.dataset.key = page.key;
+    b.setAttribute('role', 'tab');
+    b.textContent = page.title || page.key;
+    b.addEventListener('click', function () { activate(page.key); });
+    tabsEl.appendChild(b);
+    buildPage(page);
+  });
+
+  if (DATA.pages.length) activate(DATA.pages[0].key);
+})();
+</script>
+</body>
+</html>
