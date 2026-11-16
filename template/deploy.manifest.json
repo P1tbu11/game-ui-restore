@@ -1,9 +1,0 @@
-{
-  "include": [
-    "index.html",
-    "data",
-    "pieces",
-    "fonts"
-  ],
-  "exclude": [".DS_Store", "Thumbs.db"]
-}
