@@ -1,0 +1,12 @@
+{
+  "name": "game-ui-page",
+  "version": "0.1.0",
+  "private": true,
+  "description": "游戏 UI 还原页面（由 gui-restore 初始化）",
+  "scripts": {
+    "lint": "python3 scripts/lint_assets.py",
+    "dev": "python3 -m http.server 8080",
+    "build": "python3 scripts/build.py",
+    "deploy": "bash scripts/deploy.sh"
+  }
+}

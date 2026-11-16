@@ -52,6 +52,7 @@ function main() {
 
   const must = [
     'index.html',
+    'package.json',
     'data/app.js',
     'scripts/lint_assets.py',
     'scripts/build.py',
@@ -89,6 +90,11 @@ function main() {
   const l2 = py(['scripts/lint_assets.py'], PROJ);
   if (l2.status === 0 && /全绿/.test(l2.stdout)) ok('素材齐了之后 lint 通过');
   else bad('素材齐了仍不通过', 'exit=' + l2.status + '\n' + l2.stdout + l2.stderr);
+
+  // 文档让人跑 npm run lint，那就必须真能跑
+  const viaNpm = spawnSync('npm', ['run', 'lint', '--silent'], { cwd: PROJ, encoding: 'utf8' });
+  if (viaNpm.status === 0) ok('npm run lint 可用');
+  else bad('npm run lint 跑不通', 'exit=' + viaNpm.status + '\n' + viaNpm.stdout + viaNpm.stderr);
 
   // ---- build：应当打出包，且文件数对得上 ----
   console.log('build');
